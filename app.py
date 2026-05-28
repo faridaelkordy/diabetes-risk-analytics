@@ -12,9 +12,9 @@ st.write("This application implements an optimized Random Forest Pipeline to cal
 
 # Load saved pipeline components safely
 @st.cache_resource
-def load_pipeline_artifacts():
-   model = joblib.load('model.pkl')
-preprocessor = joblib.load('preprocessor.pkl')
+def load_artifacts():
+    model = joblib.load('model.pkl')
+    preprocessor = joblib.load('preprocessor.pkl')
     return model, preprocessor
 try:
     model, preprocessor = load_pipeline_artifacts()
