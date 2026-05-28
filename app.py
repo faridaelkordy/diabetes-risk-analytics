@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
+import os
 
 # Set Page Architecture
 st.set_page_config(page_title="Metabolic Risk Analytics App", layout="centered")
@@ -16,10 +17,12 @@ def load_artifacts():
     model = joblib.load('model.pkl')
     preprocessor = joblib.load('preprocessor.pkl')
     return model, preprocessor
+
+# FIX: Calling the correct function name matching the definition above!
 try:
-    model, preprocessor = load_pipeline_artifacts()
+    model, preprocessor = load_artifacts()
 except Exception as e:
-    st.error("Model artifacts not found. Make sure 'final_diabetes_model.pkl' and 'data_preprocessor.pkl' are inside the root folder.")
+    st.error("Model artifacts not found. Make sure 'model.pkl' and 'preprocessor.pkl' are inside the root folder.")
 
 # UI Inputs for Patient Diagnostic Attributes
 st.sidebar.header("Patient Diagnostic Entry")
