@@ -34,25 +34,47 @@ bmi = st.sidebar.slider("Body Mass Index (BMI Value)", 10.0, 60.0, 26.5, step=0.
 HbA1c_level = st.sidebar.slider("Glycated Hemoglobin level (HbA1c %)", 3.5, 9.0, 5.5, step=0.1)
 blood_glucose_level = st.sidebar.slider("Fasting/Random Glucose (mg/dL)", 60, 300, 130)
 
-# Process Interactive UI Input into Inference Dataframe Structure
-# FIXED: Updated 'HbA1c_level' capitalization to match the trained pipeline expectation!
-input_data = pd.DataFrame([{
-    'gender': gender,
-    'age': age,
-    'hypertension': 1 if hypertension == "Yes" else 0,
-    'heart_disease': 1 if heart_disease == "Yes" else 0,
-    'smoking_history': 'Unknown' if smoking_history == 'No Info' else smoking_history,
-    'bmi': bmi,
-    'HbA1c_level': HbA1c_level,  
-    'blood_glucose_level': blood_glucose_level
-}])
+# Build a comprehensive dictionary map covering both lowercase and uppercase variations
+raw_inputs = {
+    'gender': gender, 'Gender': gender,
+    'age': age, 'Age': age,
+    'hypertension': 1 if hypertension == "Yes" else 0, 'Hypertension': 1 if hypertension == "Yes" else 0,
+    'heart_disease': 1 if heart_disease == "Yes" else 0, 'Heart_disease': 1 if heart_disease == "Yes" else 0, 'Heart_Disease': 1 if heart_disease == "Yes" else 0,
+    'smoking_history': 'Unknown' if smoking_history == 'No Info' else smoking_history, 'Smoking_history': 'Unknown' if smoking_history == 'No Info' else smoking_history, 'Smoking_History': 'Unknown' if smoking_history == 'No Info' else smoking_history,
+    'bmi': bmi, 'BMI': bmi,
+    'hbA1c_level': HbA1c_level, 'HbA1c_level': HbA1c_level, 'Hba1c_level': HbA1c_level, 'HbA1c': HbA1c_level,
+    'blood_glucose_level': blood_glucose_level, 'Blood_glucose_level': blood_glucose_level, 'Blood_Glucose_Level': blood_glucose_level
+}
 
-# Reproduce Feature Engineering Logic on live input data
+# DYNAMIC MATCHING: Extract the exact feature names the preprocessor expects
+try:
+    if hasattr(preprocessor, 'feature_names_in_'):
+        expected_features = preprocessor.feature_names_in_
+    elif hasattr(preprocessor, 'get_feature_names_out'):
+        expected_features = preprocessor.get_feature_names_out()
+    else:
+        # Fallback to standard lowercase format if features aren't exposed
+        expected_features = ['gender', 'age', 'hypertension', 'heart_disease', 'smoking_history', 'bmi', 'hbA1c_level', 'blood_glucose_level']
+except Exception:
+    expected_features = ['gender', 'age', 'hyheading', 'heart_disease', 'smoking_history', 'bmi', 'hbA1c_level', 'blood_glucose_level']
+
+# Construct the input row strictly using the requested column names and ordering
+ordered_inputs = {}
+for col in expected_features:
+    if col in raw_inputs:
+        ordered_inputs[col] = raw_inputs[col]
+    else:
+        # Dynamic fallback if there's a highly specific feature engineered column in the training set
+        ordered_inputs[col] = 0
+
+input_data = pd.DataFrame([ordered_inputs])
+
+# Calculate internal risk metric score safely
 high_bmi_flag = 1 if bmi >= 25 else 0
 senior_flag = 1 if age >= 50 else 0
-input_data['metabolic_risk_score'] = (input_data['hypertension'].values[0] + 
-                                      input_data['heart_disease'].values[0] + 
-                                      high_bmi_flag + senior_flag)
+metabolic_risk_score = (ordered_inputs.get('hypertension', 0) or ordered_inputs.get('Hypertension', 0)) + \
+                       (ordered_inputs.get('heart_disease', 0) or ordered_inputs.get('Heart_disease', 0) or ordered_inputs.get('Heart_Disease', 0)) + \
+                       high_bmi_flag + senior_flag
 
 # Run Operational Pipeline Elements on Predict Request
 if st.button("Calculate Metabolic Risk Profile"):
@@ -76,4 +98,4 @@ if st.button("Calculate Metabolic Risk Profile"):
     with col2:
         st.metric(label="Evaluated Probability Matrix Score", value=f"{probability * 100:.2f}%")
         
-    st.info(f"**Engineered Metabolic Risk Index Score:** {input_data['metabolic_risk_score'].values[0]} / 4 points (Based on systemic tracking variables).")
+    st.info(f"**Engineered Metabolic Risk Index Score:** {metabolic_risk_score} / 4 points (Based on systemic tracking variables).")
