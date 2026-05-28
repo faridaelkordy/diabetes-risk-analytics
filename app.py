@@ -43,12 +43,8 @@ senior_flag = 1 if age >= 50 else 0
 metabolic_risk_score = hypertension + heart_disease + high_bmi_flag + senior_flag
 clean_smoking = 'Unknown' if smoking_history == 'No Info' else smoking_history
 
-# -------------------------------------------------------------
-# SCHEMA STRATEGY: Build exact structural versions for fallback
-# -------------------------------------------------------------
-
-# Version A: Completely Lowercase Layout
-df_lowercase = pd.DataFrame([{
+# Construct clean inference dataframe row
+input_data = pd.DataFrame([{
     'gender': gender,
     'age': age,
     'hypertension': hypertension,
@@ -60,55 +56,31 @@ df_lowercase = pd.DataFrame([{
     'metabolic_risk_score': metabolic_risk_score
 }])
 
-# Version B: Standard Capitalized Layout
-df_capitalized = pd.DataFrame([{
-    'gender': gender,
-    'age': age,
-    'hypertension': hypertension,
-    'heart_disease': heart_disease,
-    'smoking_history': clean_smoking,
-    'bmi': bmi,
-    'HbA1c_level': HbA1c_level,
-    'blood_glucose_level': blood_glucose_level,
-    'metabolic_risk_score': metabolic_risk_score
-}])
-
 # Run Operational Pipeline Elements on Predict Request
 if st.button("Calculate Metabolic Risk Profile"):
-    processed_input = None
-    
-    # Execution Attempt 1: Try processing with the Lowercase Layout
     try:
-        processed_input = preprocessor.transform(df_lowercase)
-        input_data_used = df_lowercase
-    except Exception:
-        # Execution Attempt 2: Fallback cleanly to Capitalized Layout if version A rejects capitalization
-        try:
-            processed_input = preprocessor.transform(df_capitalized)
-            input_data_used = df_capitalized
-        except Exception as final_trans_error:
-            st.error(f"Execution Error during pipeline array transformation: {final_trans_error}")
-            st.info("Tip: Ensure your training notebook column names explicitly match: gender, age, hypertension, heart_disease, smoking_history, bmi, hbA1c_level, blood_glucose_level, metabolic_risk_score")
-
-    # If transformation succeeds, run classification
-    if processed_input is not None:
-        try:
-            prediction = model.predict(processed_input)[0]
-            probability = model.predict_proba(processed_input)[0][1]
-            
-            st.markdown("---")
-            st.markdown("### Clinical Inferences")
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                if prediction == 1:
-                    st.error("Classification Target: **HIGH DIABETIC RISK**")
-                else:
-                    st.success("Classification Target: **LOW/NORMAL RISK**")
-                    
-            with col2:
-                st.metric(label="Evaluated Probability Matrix Score", value=f"{probability * 100:.2f}%")
+        # Apply standard saved pipeline data processing transformation matrix
+        processed_input = preprocessor.transform(input_data)
+        
+        # Run classification inferences
+        prediction = model.predict(processed_input)[0]
+        probability = model.predict_proba(processed_input)[0][1]
+        
+        st.markdown("---")
+        st.markdown("### Clinical Inferences")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if prediction == 1:
+                st.error("Classification Target: **HIGH DIABETIC RISK**")
+            else:
+                st.success("Classification Target: **LOW/NORMAL RISK**")
                 
-            st.info(f"**Engineered Metabolic Risk Index Score:** {metabolic_risk_score} / 4 points (Based on systemic tracking variables).")
-        except Exception as pred_error:
-            st.error(f"Prediction execution failed: {pred_error}")
+        with col2:
+            st.metric(label="Evaluated Probability Matrix Score", value=f"{probability * 100:.2f}%")
+            
+        st.info(f"**Engineered Metabolic Risk Index Score:** {metabolic_risk_score} / 4 points (Based on systemic tracking variables).")
+        
+    except Exception as eval_error:
+        st.error(f"Execution Error during pipeline array transformation: {eval_error}")
+        st.warning("⚠️ Notice: The current saved preprocessor file on GitHub expects demographic columns (race, year, location) instead of your clinical diabetes variables. Overwriting 'preprocessor.pkl' with the correct version will resolve this instantly.")
