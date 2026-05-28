@@ -12,17 +12,18 @@ st.markdown("### Clinical Diabetes & Metabolic Risk Profiling System")
 st.write("This application implements an optimized Random Forest Pipeline to calculate a patient's personalized probability of diabetic classification status.")
 
 # Load saved pipeline components safely
+# Load saved pipeline components safely
 @st.cache_resource
 def load_artifacts():
     model = joblib.load('model.pkl')
     preprocessor = joblib.load('preprocessor.pkl')
     return model, preprocessor
 
-# FIX: Calling the correct function name matching the definition above!
+# FIXED: Now calling 'load_artifacts()' to match the definition above!
 try:
     model, preprocessor = load_artifacts()
 except Exception as e:
-    st.error("Model artifacts not found. Make sure 'model.pkl' and 'preprocessor.pkl' are inside the root folder.")
+    st.error(f"Error loading files: {e}")
 
 # UI Inputs for Patient Diagnostic Attributes
 st.sidebar.header("Patient Diagnostic Entry")
