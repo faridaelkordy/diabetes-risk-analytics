@@ -12,14 +12,12 @@ st.markdown("### Clinical Diabetes & Metabolic Risk Profiling System")
 st.write("This application implements an optimized Random Forest Pipeline to calculate a patient's personalized probability of diabetic classification status.")
 
 # Load saved pipeline components safely
-# Load saved pipeline components safely
 @st.cache_resource
 def load_artifacts():
     model = joblib.load('model.pkl')
     preprocessor = joblib.load('preprocessor.pkl')
     return model, preprocessor
 
-# FIXED: Now calling 'load_artifacts()' to match the definition above!
 try:
     model, preprocessor = load_artifacts()
 except Exception as e:
@@ -37,6 +35,7 @@ HbA1c_level = st.sidebar.slider("Glycated Hemoglobin level (HbA1c %)", 3.5, 9.0,
 blood_glucose_level = st.sidebar.slider("Fasting/Random Glucose (mg/dL)", 60, 300, 130)
 
 # Process Interactive UI Input into Inference Dataframe Structure
+# FIXED: Updated 'HbA1c_level' capitalization to match the trained pipeline expectation!
 input_data = pd.DataFrame([{
     'gender': gender,
     'age': age,
@@ -44,7 +43,7 @@ input_data = pd.DataFrame([{
     'heart_disease': 1 if heart_disease == "Yes" else 0,
     'smoking_history': 'Unknown' if smoking_history == 'No Info' else smoking_history,
     'bmi': bmi,
-    'hbA1c_level': HbA1c_level,  # Matched perfectly to your lowercase column name!
+    'HbA1c_level': HbA1c_level,  
     'blood_glucose_level': blood_glucose_level
 }])
 
