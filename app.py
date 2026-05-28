@@ -16,7 +16,6 @@ def load_pipeline_artifacts():
    model = joblib.load('model.pkl')
 preprocessor = joblib.load('preprocessor.pkl')
     return model, preprocessor
-
 try:
     model, preprocessor = load_pipeline_artifacts()
 except Exception as e:
