@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
-import os
 
 # Set Page Architecture
 st.set_page_config(page_title="Metabolic Risk Analytics App", layout="centered")
@@ -27,75 +26,89 @@ except Exception as e:
 st.sidebar.header("Patient Diagnostic Entry")
 gender = st.sidebar.selectbox("Biological Sex", ["Male", "Female"])
 age = st.sidebar.slider("Age (Years)", 1, 100, 45)
-hypertension = st.sidebar.selectbox("History of Hypertension?", ["No", "Yes"])
-heart_disease = st.sidebar.selectbox("History of Heart Disease?", ["No", "Yes"])
+hypertension_choice = st.sidebar.selectbox("History of Hypertension?", ["No", "Yes"])
+heart_disease_choice = st.sidebar.selectbox("History of Heart Disease?", ["No", "Yes"])
 smoking_history = st.sidebar.selectbox("Smoking Profile", ["Never", "Current", "Former", "No Info", "not current", "ever"])
 bmi = st.sidebar.slider("Body Mass Index (BMI Value)", 10.0, 60.0, 26.5, step=0.1)
 HbA1c_level = st.sidebar.slider("Glycated Hemoglobin level (HbA1c %)", 3.5, 9.0, 5.5, step=0.1)
 blood_glucose_level = st.sidebar.slider("Fasting/Random Glucose (mg/dL)", 60, 300, 130)
 
-# Build a comprehensive dictionary map covering both lowercase and uppercase variations
-raw_inputs = {
-    'gender': gender, 'Gender': gender,
-    'age': age, 'Age': age,
-    'hypertension': 1 if hypertension == "Yes" else 0, 'Hypertension': 1 if hypertension == "Yes" else 0,
-    'heart_disease': 1 if heart_disease == "Yes" else 0, 'Heart_disease': 1 if heart_disease == "Yes" else 0, 'Heart_Disease': 1 if heart_disease == "Yes" else 0,
-    'smoking_history': 'Unknown' if smoking_history == 'No Info' else smoking_history, 'Smoking_history': 'Unknown' if smoking_history == 'No Info' else smoking_history, 'Smoking_History': 'Unknown' if smoking_history == 'No Info' else smoking_history,
-    'bmi': bmi, 'BMI': bmi,
-    'hbA1c_level': HbA1c_level, 'HbA1c_level': HbA1c_level, 'Hba1c_level': HbA1c_level, 'HbA1c': HbA1c_level,
-    'blood_glucose_level': blood_glucose_level, 'Blood_glucose_level': blood_glucose_level, 'Blood_Glucose_Level': blood_glucose_level
-}
+# Convert UI selections to match the numerical training schema
+hypertension = 1 if hypertension_choice == "Yes" else 0
+heart_disease = 1 if heart_disease_choice == "Yes" else 0
 
-# DYNAMIC MATCHING: Extract the exact feature names the preprocessor expects
-try:
-    if hasattr(preprocessor, 'feature_names_in_'):
-        expected_features = preprocessor.feature_names_in_
-    elif hasattr(preprocessor, 'get_feature_names_out'):
-        expected_features = preprocessor.get_feature_names_out()
-    else:
-        # Fallback to standard lowercase format if features aren't exposed
-        expected_features = ['gender', 'age', 'hypertension', 'heart_disease', 'smoking_history', 'bmi', 'hbA1c_level', 'blood_glucose_level']
-except Exception:
-    expected_features = ['gender', 'age', 'hyheading', 'heart_disease', 'smoking_history', 'bmi', 'hbA1c_level', 'blood_glucose_level']
-
-# Construct the input row strictly using the requested column names and ordering
-ordered_inputs = {}
-for col in expected_features:
-    if col in raw_inputs:
-        ordered_inputs[col] = raw_inputs[col]
-    else:
-        # Dynamic fallback if there's a highly specific feature engineered column in the training set
-        ordered_inputs[col] = 0
-
-input_data = pd.DataFrame([ordered_inputs])
-
-# Calculate internal risk metric score safely
+# Calculate internal risk metric score safely matching training calculations
 high_bmi_flag = 1 if bmi >= 25 else 0
 senior_flag = 1 if age >= 50 else 0
-metabolic_risk_score = (ordered_inputs.get('hypertension', 0) or ordered_inputs.get('Hypertension', 0)) + \
-                       (ordered_inputs.get('heart_disease', 0) or ordered_inputs.get('Heart_disease', 0) or ordered_inputs.get('Heart_Disease', 0)) + \
-                       high_bmi_flag + senior_flag
+metabolic_risk_score = hypertension + heart_disease + high_bmi_flag + senior_flag
+
+# Build the base inference row with standard lowercase column layouts
+input_row = {
+    'gender': gender,
+    'age': age,
+    'hypertension': hypertension,
+    'heart_disease': heart_disease,
+    'smoking_history': 'Unknown' if smoking_history == 'No Info' else smoking_history,
+    'bmi': bmi,
+    'hbA1c_level': HbA1c_level,
+    'blood_glucose_level': blood_glucose_level,
+    'metabolic_risk_score': metabolic_risk_score
+}
+
+# Construct the initial evaluation dataframe
+base_df = pd.DataFrame([input_row])
+
+# DYNAMIC ALIGNMENT: Match naming cases (e.g. hbA1c_level vs HbA1c_level) and sort column order
+if 'preprocessor' in locals() or 'preprocessor' in globals():
+    try:
+        # Detect exact expected features from the pipeline object
+        if hasattr(preprocessor, 'feature_names_in_'):
+            expected_cols = list(preprocessor.feature_names_in_)
+            
+            # Map values to the capitalization style expected by the transformer
+            aligned_row = {}
+            for col in expected_cols:
+                # Find matching keys regardless of uppercase/lowercase text variance
+                match = [k for k in input_row.keys() if k.lower() == col.lower()]
+                if match:
+                    aligned_row[col] = input_row[match[0]]
+                else:
+                    aligned_row[col] = 0
+            
+            # Lock down the schema
+            input_data = pd.DataFrame([aligned_row])[expected_cols]
+        else:
+            input_data = base_df
+    except Exception:
+        input_data = base_df
+else:
+    input_data = base_df
 
 # Run Operational Pipeline Elements on Predict Request
 if st.button("Calculate Metabolic Risk Profile"):
-    # Apply standard saved pipeline data processing transformation matrix
-    processed_input = preprocessor.transform(input_data)
-    
-    # Run classification inferences
-    prediction = model.predict(processed_input)[0]
-    probability = model.predict_proba(processed_input)[0][1]
-    
-    st.markdown("---")
-    st.markdown("### Clinical Inferences")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        if prediction == 1:
-            st.error("Classification Target: **HIGH DIABETIC RISK**")
-        else:
-            st.success("Classification Target: **LOW/NORMAL RISK**")
-            
-    with col2:
-        st.metric(label="Evaluated Probability Matrix Score", value=f"{probability * 100:.2f}%")
+    try:
+        # Apply standard saved pipeline data processing transformation matrix
+        processed_input = preprocessor.transform(input_data)
         
-    st.info(f"**Engineered Metabolic Risk Index Score:** {metabolic_risk_score} / 4 points (Based on systemic tracking variables).")
+        # Run classification inferences
+        prediction = model.predict(processed_input)[0]
+        probability = model.predict_proba(processed_input)[0][1]
+        
+        st.markdown("---")
+        st.markdown("### Clinical Inferences")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if prediction == 1:
+                st.error("Classification Target: **HIGH DIABETIC RISK**")
+            else:
+                st.success("Classification Target: **LOW/NORMAL RISK**")
+                
+        with col2:
+            st.metric(label="Evaluated Probability Matrix Score", value=f"{probability * 100:.2f}%")
+            
+        st.info(f"**Engineered Metabolic Risk Index Score:** {metabolic_risk_score} / 4 points (Based on systemic tracking variables).")
+        
+    except Exception as eval_error:
+        st.error(f"Execution Error during pipeline array transformation: {eval_error}")
+        st.info("Tip: Double check that the columns in your notebook match: gender, age, hypertension, heart_disease, smoking_history, bmi, hbA1c_level, blood_glucose_level, metabolic_risk_score")
